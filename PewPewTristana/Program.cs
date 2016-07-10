@@ -59,24 +59,16 @@ namespace PewPewTristana
             var harass = Config.AddSubMenu(new Menu("[PPT]: Harass Settings", "Harass Settings"));
             var drawing = Config.AddSubMenu(new Menu("[PPT]: Draw Settings", "Draw"));
 
-            combo.SubMenu("[SBTW] ManaManager").AddItem(new MenuItem("emana", "[E] Mana %").SetValue(new Slider(10, 100, 0)));
-            combo.SubMenu("[SBTW] ManaManager").AddItem(new MenuItem("rmana", "[R] Mana %").SetValue(new Slider(15, 100, 0)));
+
             combo.SubMenu("[Q] Settings").AddItem(new MenuItem("UseQ", "Use Q").SetValue(true));
             combo.SubMenu("[Q] Settings").AddItem(new MenuItem("QonE", "Use [Q] if target has [E] debuff").SetValue(false));
 
 
             combo.SubMenu("[W] Settings").AddItem(new MenuItem("UseW", "Not Supported"));
 
-
             combo.SubMenu("[E] Settings").AddItem(new MenuItem("UseE", "Use Explosive Charge").SetValue(true));
-            combo.SubMenu("[E] Settings").AddItem(new MenuItem("UseEW", "Use W on E stack count").SetValue(false));
-            combo.SubMenu("[E] Settings").AddItem(new MenuItem("estack", "E stack count").SetValue(new Slider(3, 4, 1)));
-            combo.SubMenu("[E] Settings").AddItem(new MenuItem("enear", "Enemy Count").SetValue(new Slider(2, 5, 1)));
-            combo.SubMenu("[E] Settings").AddItem(new MenuItem("ehp", "Enemy HP %").SetValue(new Slider(45, 100, 0)));
-            combo.SubMenu("[E] Settings").AddItem(new MenuItem("ohp", "Own HP %").SetValue(new Slider(65, 100, 0)));
 
-            combo.SubMenu("[R] Settings")
-            .AddItem(new MenuItem("UseR", "Use R [FINISHER] (TOGGLE) ").SetValue(new KeyBind('K', KeyBindType.Toggle)));
+            combo.SubMenu("[R] Settings").AddItem(new MenuItem("UseR", "Use R").SetValue(true));
             combo.SubMenu("[R] Settings").AddItem(new MenuItem("UseRE", "Use ER [FINISHER]").SetValue(true));
             combo.SubMenu("[R] Settings").AddItem(new MenuItem("manualr", "Cast R on your target").SetValue(new KeyBind('R', KeyBindType.Press)));
 
@@ -96,6 +88,7 @@ namespace PewPewTristana
             Config.SubMenu("[PPT]: Laneclear Settings").AddItem(new MenuItem("laneE", "Use E").SetValue(true));
             Config.SubMenu("[PPT]: Laneclear Settings").AddItem(new MenuItem("eturret", "Use E on turrets").SetValue(true));
             Config.SubMenu("[PPT]: Laneclear Settings").AddItem(new MenuItem("laneclearmana", "Mana Percentage").SetValue(new Slider(30, 100, 0)));
+            Config.SubMenu("[PPT]: Laneclear Settings").AddItem(new MenuItem("levelclear", "Don't use abilities till level").SetValue(new Slider(8, 18 ,1)));
 
             //JUNGLEFARMMENU
             Config.SubMenu("[PPT]: Jungle Settings").AddItem(new MenuItem("jungleQ", "Use Q").SetValue(true));
@@ -154,9 +147,9 @@ namespace PewPewTristana
             var rengar = HeroManager.Enemies.Find(h => h.ChampionName.Equals("Rengar")); //<---- Credits to Asuna (Couldn't figure out how to cast R to Sender so I looked at his vayne ^^
             if (rengar != null)
 
-            if (sender.Name == ("Rengar_LeapSound.troy") && Config.Item("AntiRengar").GetValue<bool>() &&
-                sender.Position.Distance(player.Position) < R.Range)
-                R.Cast(rengar);
+                if (sender.Name == ("Rengar_LeapSound.troy") && Config.Item("AntiRengar").GetValue<bool>() &&
+                    sender.Position.Distance(player.Position) < R.Range)
+                    R.Cast(rengar);
 
             var khazix = HeroManager.Enemies.Find(h => h.ChampionName.Equals("Khazix"));
             if (khazix != null)
@@ -195,7 +188,7 @@ namespace PewPewTristana
                     Hpi.unit = enemy;
                     Hpi.drawDmg(CalcDamage(enemy), Color.Green);
                     Utility.HpBarDamageIndicator.Enabled = false;
-                }             
+                }
             }
             if (mode == 1)
             {
@@ -212,68 +205,60 @@ namespace PewPewTristana
             if (target == null || !target.IsValidTarget())
                 return;
 
-            if (Q.IsReady() && target.IsValidTarget(Q.Range))
-                qlogic();
+            if (R.IsReady() && target.IsValidTarget(R.Range)) rlogic(target);
 
-            var emana = Config.Item("emana").GetValue<Slider>().Value;
-
-            if (E.IsReady() && Config.Item("UseE").GetValue<bool>()
-            && player.ManaPercent >= emana)
-                E.CastOnUnit(target);
-
-
-            if (R.IsReady() && target.IsValidTarget(R.Range))
-            {
-                rlogic();
-            }
+            var botrk = LeagueSharp.Common.Data.ItemData.Blade_of_the_Ruined_King.GetItem();
+            var Ghost = LeagueSharp.Common.Data.ItemData.Youmuus_Ghostblade.GetItem();
+            var cutlass = LeagueSharp.Common.Data.ItemData.Bilgewater_Cutlass.GetItem();
 
             if (Orbwalker.ActiveMode == Orbwalking.OrbwalkingMode.Combo)
-                items();
+            {
+                if (botrk.IsReady() && botrk.IsInRange(target) || 
+                    Ghost.IsReady() && target.IsValidTarget(Q.Range) || 
+                    cutlass.IsReady() && cutlass.IsInRange(target)) items();
+            }
 
+            if (!Q.IsReady() && !E.IsReady())
+                return;
+
+            if (Q.IsReady() && target.IsValidTarget(Q.Range))
+                qlogic(target);
+
+            if (E.IsReady() && Config.Item("UseE").GetValue<bool>()) E.Cast(target);
 
         }
         public static float CalcDamage(Obj_AI_Base target)
         {
-            //Calculate Combo Damage
-            float damage = (float)player.GetAutoAttackDamage(target, true) * (1 + player.Crit);
+                //Calculate Combo Damage
+                float damage = (float)player.GetAutoAttackDamage(target, true) * (1 + player.Crit);
+                Ignite = player.GetSpellSlot("summonerdot");
 
-            Ignite = player.GetSpellSlot("summonerdot");
+                if (Ignite.IsReady())
+                    damage += (float)player.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
 
-            if (Ignite.IsReady())
-                damage += (float)player.GetSummonerSpellDamage(target, Damage.SummonerSpell.Ignite);
+                if (Items.HasItem(3153) && Items.CanUseItem(3153))
+                    damage += (float)player.GetItemDamage(target, Damage.DamageItems.Botrk);
 
-            if (Items.HasItem(3153) && Items.CanUseItem(3153))
-                damage += (float)player.GetItemDamage(target, Damage.DamageItems.Botrk); //ITEM BOTRK
+                if (Items.HasItem(3144) && Items.CanUseItem(3144))
+                    damage += (float)player.GetItemDamage(target, Damage.DamageItems.Bilgewater);
 
-            if (Items.HasItem(3144) && Items.CanUseItem(3144))
-                damage += (float)player.GetItemDamage(target, Damage.DamageItems.Bilgewater); //ITEM BOTRK
+            if (E.IsReady())
+                damage += E.GetDamage(target);
 
-            if (Config.Item("UseE").GetValue<bool>()) // edamage
-            {
-                if (E.IsReady())
-                {
-                    damage += E.GetDamage(target);
-                }
+            if (target.HasBuff("tristanaecharge"))
+                damage += E.GetDamage(target) * (float)(0.30 * target.Buffs.Find(buff => buff.Name == "tristanaecharge").Count) +1;
+
+
+            if (R.IsReady()) // rdamage
+                    damage += R.GetDamage(target);
+
+                return damage;
             }
+            
+    
 
-            if (R.IsReady() && Config.Item("UseR").GetValue<KeyBind>().Active) // rdamage
-            {
-
-                damage += R.GetDamage(target);
-            }
-
-            if (W.IsReady() && Config.Item("UseW").GetValue<bool>())
-            {
-                damage += W.GetDamage(target);
-            }
-            return damage;
-
-
-        }
-
-        private static void qlogic()
+        private static void qlogic(Obj_AI_Hero target)
         {
-            var target = TargetSelector.GetTarget(Q.Range, TargetSelector.DamageType.Physical);
             if (target == null || !target.IsValid) return;
 
             if (Config.Item("QonE").GetValue<bool>() && !target.HasBuff("tristanaecharge"))
@@ -286,30 +271,30 @@ namespace PewPewTristana
 
 
 
-        private static void rlogic()
+        private static void rlogic(Obj_AI_Hero target)
         {
-            var target = TargetSelector.GetTarget(R.Range, TargetSelector.DamageType.Magical);
-            var estacks = target.Buffs.Find(buff => buff.Name == "tristanaecharge").Count;
-            var erdamage = (E.GetDamage(target) * ((0.30 * estacks) + 1) + R.GetDamage(target));
-            if (target == null || !target.IsValid)
+            if (target == null)
                 return;
 
+            if (Config.Item("UseR").GetValue<bool>() && R.IsReady() &&
+            R.GetDamage(target) > target.Health)
+            {
+                R.Cast(target);
+            }
+
             if (Config.Item("manualr").GetValue<KeyBind>().Active && R.IsReady())
-                R.CastOnUnit(target);
+                R.Cast(target);
 
             if (Config.Item("UseRE").GetValue<bool>()
                 && R.IsReady()
-                && Config.Item("UseR").GetValue<KeyBind>().Active
-                && target.HasBuff("tristanaecharge") && erdamage - 2 * target.Level > target.Health)
+                && Config.Item("UseR").GetValue<bool>()
+                && target.HasBuff("tristanaecharge") 
+                && (E.GetDamage(target) * 
+                ((0.30 * target.Buffs.Find(buff => buff.Name == "tristanaecharge").Count) + 1) + R.GetDamage(target)) - 2 * target.Level > target.Health)
             {
-                R.CastOnUnit(target);
+                R.Cast(target);
             }
 
-            if (Config.Item("UseR").GetValue<KeyBind>().Active && R.IsReady() &&
-                R.GetDamage(target) > target.Health)
-            {
-                R.CastOnUnit(target);
-            }
 
         }
         private static float IgniteDamage(Obj_AI_Hero target)
@@ -359,19 +344,25 @@ namespace PewPewTristana
         }
         private static void Game_OnGameUpdate(EventArgs args)
         {
-            switch (Orbwalker.ActiveMode)
+            try
             {
-                case Orbwalking.OrbwalkingMode.Combo:
-                    combo();
-                    break;
-                case Orbwalking.OrbwalkingMode.Mixed:
-                    harass();
-                    break;
-                case Orbwalking.OrbwalkingMode.LaneClear:
-                    Laneclear();
-                    Jungleclear();
-                    break;
+                switch (Orbwalker.ActiveMode)
+                {
+                    case Orbwalking.OrbwalkingMode.Combo:
+                        combo();
+                        break;
+                    case Orbwalking.OrbwalkingMode.Mixed:
+                        harass();
+                        break;
+                    case Orbwalking.OrbwalkingMode.LaneClear:
+                        Laneclear();
+                        Jungleclear();
+                        break;
+                }
+
             }
+            catch
+            { }
         }
 
         private static void harass()
@@ -403,8 +394,19 @@ namespace PewPewTristana
             var MinionsQ = MinionManager.GetMinions(ObjectManager.Player.ServerPosition, Orbwalking.GetRealAutoAttackRange(player));
             var allMinionsE = MinionManager.GetMinions(ObjectManager.Player.ServerPosition, E.Range);
             var AA = MinionManager.GetMinions(ObjectManager.Player.ServerPosition, Orbwalking.GetRealAutoAttackRange(player));
-
             var Efarmpos = W.GetCircularFarmLocation(allMinionsE, 200);
+
+            foreach (var turret in
+                ObjectManager.Get<Obj_AI_Turret>().Where(t => t.IsValidTarget() && player.Distance(t.Position) < Orbwalking.GetRealAutoAttackRange(player) && t != null))
+            {
+                if (Config.Item("eturret").GetValue<bool>())
+                {
+                    E.Cast(turret);
+                }
+            }
+
+            if (player.Level < Config.Item("levelclear").GetValue<Slider>().Value)
+                return;
 
 
             if (MinionsQ.Count >= 2
@@ -427,15 +429,7 @@ namespace PewPewTristana
             }
 
 
-            foreach (var turret in
-                ObjectManager.Get<Obj_AI_Turret>()
-                    .Where(t =>t.IsValidTarget() && player.Distance(t.Position) < Orbwalking.GetRealAutoAttackRange(player) && t != null))
-            {
-                if (Config.Item("eturret").GetValue<bool>())
-                {
-                    E.Cast(turret);
-                }
-            }
+
 
         }
         private static void Jungleclear()
@@ -472,7 +466,7 @@ namespace PewPewTristana
             //Draw Skill Cooldown on Champ
             var pos = Drawing.WorldToScreen(ObjectManager.Player.Position);
 
-            if (Config.Item("UseR").GetValue<KeyBind>().Active && Config.Item("drawRtoggle").GetValue<bool>())
+            if (Config.Item("UseR").GetValue<bool>() && Config.Item("drawRtoggle").GetValue<bool>())
                 Drawing.DrawText(pos.X - 50, pos.Y + 50, Color.LawnGreen, "[R] Finisher: On");
             else if (Config.Item("drawRtoggle").GetValue<bool>())
                 Drawing.DrawText(pos.X - 50, pos.Y + 50, Color.Tomato, "[R] Finisher: Off");

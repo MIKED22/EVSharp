@@ -12,3 +12,4 @@ C:\Users\Dominic\Documents\GitHub\Leaguesharp\PewPewTristana\bin\Release\LeagueS
 C:\Users\Dominic\Documents\GitHub\Leaguesharp\PewPewTristana\bin\Release\LeagueSharp.Data.pdb
 C:\Users\Dominic\Documents\GitHub\Leaguesharp\PewPewTristana\obj\x86\Release\PewPewTristana.exe
 C:\Users\Dominic\Documents\GitHub\Leaguesharp\PewPewTristana\obj\x86\Release\PewPewTristana.pdb
+C:\Users\Dominic\Documents\GitHub\Leaguesharp\PewPewTristana\obj\x86\Release\PewPewTristana.csprojResolveAssemblyReference.cache
